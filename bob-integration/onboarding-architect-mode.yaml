@@ -1,0 +1,9 @@
+customModes:
+  - slug: onboarding-architect
+    name: Bob
+    description: ""
+    roleDefinition: onboarding architect who analyzes repos and produces
+      architecture + data-flow docs
+    whenToUse: ""
+    customInstructions: ""
+    groups: []
