@@ -1,0 +1,162 @@
+{
+  "project": {
+    "name": "Modular FastAPI Starter Backend",
+    "version": "1.0.0",
+    "author": "Ngusa",
+    "summary": "A production-ready FastAPI starter template built around a clean, domain-modular layout. Ships with JWT authentication, a user-management module, SQLAlchemy ORM, and environment-driven configuration."
+  },
+  "techStack": [
+    { "concern": "Web framework", "technology": "FastAPI 0.117" },
+    { "concern": "Server", "technology": "Uvicorn 0.37 (ASGI)" },
+    { "concern": "ORM", "technology": "SQLAlchemy 2.0 (declarative, typed Mapped columns)" },
+    { "concern": "Database", "technology": "PostgreSQL (production) / SQLite (local dev)" },
+    { "concern": "Auth", "technology": "JWT via python-jose, passwords hashed with bcrypt" },
+    { "concern": "Validation", "technology": "Pydantic v2 + pydantic-settings" },
+    { "concern": "Python version", "technology": "3.10+ (uses X | Y union syntax)" }
+  ],
+  "repositoryLayout": [
+    { "path": ".env.example", "type": "file", "description": "template — copy to .env before first run" },
+    { "path": "requirements.txt", "type": "file", "description": "pinned dependencies" },
+    { "path": "database.db", "type": "file", "description": "SQLite file (git-ignored in real projects)" },
+    { "path": "app/main.py", "type": "file", "description": "Entry point — FastAPI instance, CORS, router mounting" },
+    { "path": "app/core/config.py", "type": "file", "description": "pydantic-settings — reads .env into typed Settings object" },
+    { "path": "app/db/database.py", "type": "file", "description": "SQLAlchemy engine, SessionLocal, Base, get_db() dependency" },
+    { "path": "app/modules/auth/routes.py", "type": "file", "description": "HTTP handlers → /api/v1/auth/*" },
+    { "path": "app/modules/auth/services.py", "type": "file", "description": "token creation/verification, password hashing" },
+    { "path": "app/modules/auth/schemas.py", "type": "file", "description": "Token, ForgotPasswordRequest, ResetPasswordRequest" },
+    { "path": "app/modules/auth/dependencies.py", "type": "file", "description": "get_current_user() — reusable FastAPI dependency" },
+    { "path": "app/modules/user/models.py", "type": "file", "description": "UserModel (SQLAlchemy), authenticate_user(), get_by_email()" },
+    { "path": "app/modules/user/routes.py", "type": "file", "description": "HTTP handlers → /api/v1/users/*" },
+    { "path": "app/modules/user/schemas.py", "type": "file", "description": "User, UserOut, UserUpdate, UserCreate Pydantic models" },
+    { "path": "app/modules/user/services.py", "type": "file", "description": "update_user() business logic" }
+  ],
+  "modules": [
+    {
+      "name": "app/main.py",
+      "title": "Application Bootstrap",
+      "responsibilities": [
+        "Instantiates FastAPI with metadata from settings",
+        "Adds CORSMiddleware allowing FRONTEND_URL from .env",
+        "Mounts auth_router at /api/v1/auth and user_router at /api/v1/users"
+      ],
+      "runCommand": "uvicorn app.main:app --reload"
+    },
+    {
+      "name": "app/core/config.py",
+      "title": "Centralised Settings",
+      "responsibilities": [
+        "Extends pydantic_settings.BaseSettings",
+        "Reads all values from .env at startup",
+        "Provides a singleton settings object imported wherever config is needed"
+      ],
+      "runCommand": "N/A — imported, not run directly"
+    },
+    {
+      "name": "app/db/database.py",
+      "title": "Database Layer",
+      "responsibilities": [
+        "Creates SQLAlchemy engine (check_same_thread=False for SQLite)",
+        "Provides SessionLocal factory and declarative Base",
+        "Exposes get_db() generator as the FastAPI dependency for DB sessions"
+      ],
+      "runCommand": "N/A — imported, not run directly"
+    }
+  ],
+  "dataFlows": [
+    {
+      "name": "Registration",
+      "steps": [
+        "Client → POST /api/v1/auth/register → auth/routes.py",
+        "Validate body with User schema",
+        "Hash password via user/models.get_password_hash",
+        "UserModel INSERT via get_db()",
+        "Return {message, user_id}"
+      ]
+    },
+    {
+      "name": "Login → JWT Token",
+      "steps": [
+        "Client → POST /api/v1/auth/login (form-data) → auth/routes.py",
+        "authenticate_user() → DB lookup + bcrypt verify",
+        "create_access_token({\"sub\": email})",
+        "Return Token schema"
+      ]
+    },
+    {
+      "name": "Authenticated Request (e.g. GET /api/v1/users/get_me)",
+      "steps": [
+        "Client → Authorization: Bearer <token> → user/routes.py",
+        "oauth2_scheme extracts token",
+        "verify_token() decodes JWT",
+        "DB query by email",
+        "Return UserOut (no password)"
+      ]
+    },
+    {
+      "name": "Forgot / Reset Password",
+      "steps": [
+        "POST /forgot-password {email} → create_reset_token(email) → Return token (TODO: email it)",
+        "POST /reset-password {token, new_password}",
+        "verify_reset_token()",
+        "UPDATE hashed_password"
+      ]
+    }
+  ],
+  "apiEndpoints": [
+    { "method": "POST", "path": "/api/v1/auth/register", "auth": "No", "description": "Create a new user account. Body: User schema (email, username, hashed_password)." },
+    { "method": "POST", "path": "/api/v1/auth/login", "auth": "No", "description": "OAuth2 form-data login. Returns access_token + token_type." },
+    { "method": "POST", "path": "/api/v1/auth/forgot-password", "auth": "No", "description": "Generates a JWT reset token for the given email. Email delivery is a TODO." },
+    { "method": "POST", "path": "/api/v1/auth/reset-password", "auth": "No", "description": "Accepts a valid reset token and new password; updates the DB record." },
+    { "method": "GET", "path": "/api/v1/users/get_me", "auth": "Bearer JWT", "description": "Returns the authenticated user's profile (UserOut)." },
+    { "method": "GET", "path": "/api/v1/users/", "auth": "No*", "description": "Returns all users. *Currently unauthenticated — restrict before production." },
+    { "method": "PUT", "path": "/api/v1/users/update_me", "auth": "Bearer JWT", "description": "Partially updates the authenticated user (username, email, password)." }
+  ],
+  "dependencyWiring": [
+    { "dependency": "get_db()", "definedIn": "db/database.py", "injectedInto": "All routes", "provides": "A scoped Session that auto-closes on response" },
+    { "dependency": "oauth2_scheme", "definedIn": "auth/services.py", "injectedInto": "Protected routes", "provides": "The raw Bearer token string" },
+    { "dependency": "get_current_user()", "definedIn": "auth/dependencies.py", "injectedInto": "Any protected route (opt-in)", "provides": "The resolved UserModel instance" }
+  ],
+  "notes": [
+    "user/routes.py currently calls verify_token() inline rather than using get_current_user(). For new protected routes, prefer the get_current_user dependency — it's the canonical pattern. (Verified accurate against source.)"
+  ],
+  "databaseModel": {
+    "table": "users",
+    "columns": [
+      { "name": "id", "type": "Integer", "constraints": "Primary key, indexed" },
+      { "name": "email", "type": "String", "constraints": "Unique, indexed, not null" },
+      { "name": "username", "type": "String", "constraints": "Nullable" },
+      { "name": "hashed_password", "type": "String", "constraints": "Not null" }
+    ],
+    "warning": "The project does not yet use Alembic for migrations. Table creation must be triggered manually (e.g. Base.metadata.create_all(bind=engine))."
+  },
+  "localSetupChecklist": [
+    "Clone the repo and cd into it",
+    "Create a virtual environment: python -m venv .venv",
+    "Activate it: .venv\\Scripts\\activate (Windows) or source .venv/bin/activate (macOS/Linux)",
+    "Install dependencies: pip install -r requirements.txt",
+    "Copy config: cp .env.example .env",
+    "Generate a secret key: python -c \"import secrets; print(secrets.token_hex(32))\" → paste into .env as SECRET_KEY",
+    "Point DATABASE_URL to your PostgreSQL instance — or use sqlite:///./database.db for local dev",
+    "Create DB tables (no Alembic yet — add Base.metadata.create_all(engine) to main.py temporarily, or use a script)",
+    "Start the server: uvicorn app.main:app --reload",
+    "Open Swagger UI: http://127.0.0.1:8000/docs"
+  ],
+  "howToAddNewModule": [
+    "Create app/modules/<name>/ with models.py, schemas.py, routes.py, services.py, __init__.py",
+    "Define your SQLAlchemy model inheriting from Base (imported from app.db.database)",
+    "Define Pydantic input/output schemas",
+    "Write business logic in services.py",
+    "Create an APIRouter in routes.py and protect routes with Depends(get_current_user) where needed",
+    "Mount the router in app/main.py: app.include_router(my_router, prefix=\"/api/v1/<name>\", tags=[\"<Name>\"])"
+  ],
+  "knownGaps": [
+    { "area": "Password reset", "gap": "Reset token is returned in the response body — no email delivery implemented yet" },
+    { "area": "User list endpoint", "gap": "GET /api/v1/users/ has no auth guard — exposes all users publicly" },
+    { "area": "Migrations", "gap": "No Alembic setup — schema changes require manual intervention" },
+    { "area": "Token management", "gap": "No token revocation / refresh token flow" },
+    { "area": "Roles", "gap": "No role-based access control (RBAC)" },
+    { "area": "Tests", "gap": "No test suite yet" },
+    { "area": "CI/CD", "gap": "No pipeline configured" },
+    { "area": "Duplicate hashing", "gap": "Password helpers exist in both user/models.py and auth/services.py — consolidate to avoid drift. (Verified accurate against source.)" }
+  ]
+}
