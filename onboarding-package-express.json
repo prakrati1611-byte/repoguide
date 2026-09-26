@@ -1,0 +1,90 @@
+{
+  "project": {
+    "name": "express-api-starter",
+    "version": null,
+    "author": null,
+    "summary": "A JWT + RBAC middleware template for Express.js. Not a full runnable app — a set of composable auth-pipeline patterns (token verification, role-based access control, rate limiting) intended to be dropped into a new project."
+  },
+  "techStack": [
+    { "concern": "Web framework", "technology": "Express.js" },
+    { "concern": "Auth", "technology": "JWT verification middleware" },
+    { "concern": "Authorization", "technology": "Role-based access control (RBAC) via requireRole()" },
+    { "concern": "Rate limiting", "technology": "Redis-backed, per-user (in api/ variant)" }
+  ],
+  "repositoryLayout": [
+    { "path": "src/", "type": "folder", "description": "Canonical baseline variant — start here" },
+    { "path": "api/", "type": "folder", "description": "Variant adding Redis-backed per-user rate limiting" },
+    { "path": "utils/", "type": "folder", "description": "Variant adding a token refresh endpoint" },
+    { "path": "lib/", "type": "folder", "description": "Variant with a variadic requireRole(...roles) signature" },
+    { "path": "components/", "type": "folder", "description": "Component-scoped copies of the middleware" }
+  ],
+  "modules": [
+    {
+      "name": "src/ (baseline)",
+      "title": "Canonical Auth Pipeline",
+      "responsibilities": [
+        "Token verification (verifyToken)",
+        "Role-based access control (requireRole)"
+      ]
+    },
+    {
+      "name": "api/",
+      "title": "Rate-Limited Variant",
+      "responsibilities": [
+        "Adds Redis-backed per-user rate limiting on top of the baseline auth pipeline"
+      ]
+    },
+    {
+      "name": "utils/",
+      "title": "Token Refresh Variant",
+      "responsibilities": [
+        "Adds a token refresh endpoint alongside the baseline middleware"
+      ]
+    },
+    {
+      "name": "lib/",
+      "title": "Variadic Role-Check Variant",
+      "responsibilities": [
+        "Reimplements requireRole with a variadic (...roles) signature instead of a fixed argument list"
+      ]
+    },
+    {
+      "name": "components/",
+      "title": "Component-Scoped Copies",
+      "responsibilities": [
+        "Duplicate, component-scoped versions of the middleware for use within isolated app components"
+      ]
+    }
+  ],
+  "dataFlows": [
+    {
+      "name": "Authenticated Request Pipeline",
+      "steps": [
+        "Request",
+        "verifyToken()",
+        "requireRole()",
+        "rateLimitByUser()",
+        "Route Handler"
+      ]
+    }
+  ],
+  "apiEndpoints": [],
+  "dependencyWiring": [],
+  "notes": [
+    "This repo is a middleware/pattern template, not a full running application — there is no single canonical entry point; a new project would import and compose these middleware functions into its own app.js/server.js."
+  ],
+  "databaseModel": null,
+  "localSetupChecklist": [
+    "Clone the repo",
+    "Choose which variant to base your project on (src/ recommended as the baseline)",
+    "Create app.js and server.js yourself — the repo does not include them, only middleware files",
+    "Implement the UnauthorizedError, ForbiddenError, and AppError classes yourself — they are referenced throughout the middleware but not defined in the repo",
+    "Wire the middleware (verifyToken, requireRole, and optionally rateLimitByUser) into your own Express routes"
+  ],
+  "howToAddNewModule": [],
+  "knownGaps": [
+    { "area": "Missing entry point", "gap": "The repo does not include app.js or server.js — only middleware files. A new developer must create these before the project can run." },
+    { "area": "Undefined error classes", "gap": "UnauthorizedError, ForbiddenError, and AppError are referenced throughout the middleware but never defined anywhere in the repo — these must be implemented before the middleware will actually work." },
+    { "area": "Duplicated logic across variants", "gap": "Five folders (src/, api/, utils/, lib/, components/) each contain a variant of the same core auth pipeline, which risks confusion over which one is 'the' implementation to use." }
+  ]
+}
