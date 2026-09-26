@@ -85,4 +85,4 @@ Both onboarding packages were manually verified against the actual source code (
 ## Security
 
 This repository follows the IBM Hackathon GitHub template's security practices (`.gitignore`, `.bobignore`, `.env.example`) to prevent accidental credential commits. See [`SECURITY.MD`](SECURITY.MD) for details.
-```
+
